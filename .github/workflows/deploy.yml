@@ -53,8 +53,8 @@ jobs:
             
             # 2. Alten Container stoppen und löschen (falls vorhanden)
             # "|| true" sorgt dafür, dass es keinen Fehler gibt, wenn der Container beim ersten Mal nicht existiert
-            docker stop pinguin-website || true
-            docker rm pinguin-website || true
+            docker stop penguin_presentation || true
+            docker rm penguin_presentation || true
             
             # 3. Neuen Container starten
             docker run -d \
