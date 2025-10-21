@@ -1,7 +1,6 @@
 # Name der Pipeline
 name: Build, Push, and Deploy
 
-# Trigger: Startet bei jedem Push auf den "main"-Branch
 on:
   push:
     branches: [ "main" ]
@@ -10,13 +9,12 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     
-    # GIBT DER PIPELINE DIE RECHTE, IN DEINE REGISTRY ZU SCHREIBEN
     permissions:
       contents: read
       packages: write
 
     env:
-      # DEIN IMAGE-NAME, BASIEREND AUF DEINEM REPO
+      # Dein korrekter Image-Name
       IMAGE_NAME: ghcr.io/pasgrimm14/penguin_presentation 
       
     steps:
@@ -30,9 +28,9 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }} # Automatisches, sicheres Token
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 3. Schritt: Docker-Image bauen und hochladen (basierend auf deinem Dockerfile)
+      # 3. Schritt: Docker-Image bauen und hochladen
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
@@ -40,8 +38,27 @@ jobs:
           push: true
           tags: ${{ env.IMAGE_NAME }}:latest
 
-      # 4. Schritt: Portainer-Webhook "anrufen", um das Update zu starten
-      - name: Trigger Portainer Redeploy
-        run: |
-          echo "Deploying to Portainer..."
-          curl -X POST ${{ secrets.PORTAINER_WEBHOOK_URL }}
+      # 4. SCHRITT (NEU): Auf Server einloggen und Container aktualisieren
+      - name: Deploy to Server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          
+          # Befehle, die auf dem Server ausgeführt werden:
+          script: |
+            # 1. Neuestes Image von GHCR holen
+            docker pull ${{ env.IMAGE_NAME }}:latest
+            
+            # 2. Alten Container stoppen und löschen (falls vorhanden)
+            # "|| true" sorgt dafür, dass es keinen Fehler gibt, wenn der Container beim ersten Mal nicht existiert
+            docker stop pinguin-website || true
+            docker rm pinguin-website || true
+            
+            # 3. Neuen Container starten
+            docker run -d \
+              --name pinguin-website \
+              --restart unless-stopped \
+              --network proxy-network \
+              ${{ env.IMAGE_NAME }}:latest
