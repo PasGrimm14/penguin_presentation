@@ -58,7 +58,7 @@ jobs:
             
             # 3. Neuen Container starten
             docker run -d \
-              --name pinguin-website \
+              --name penguin_presentation \
               --restart unless-stopped \
               --network proxy-network \
               ${{ env.IMAGE_NAME }}:latest
