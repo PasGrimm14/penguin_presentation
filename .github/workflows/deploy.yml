@@ -1,0 +1,47 @@
+# Name der Pipeline
+name: Build, Push, and Deploy
+
+# Trigger: Startet bei jedem Push auf den "main"-Branch
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    # GIBT DER PIPELINE DIE RECHTE, IN DEINE REGISTRY ZU SCHREIBEN
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      # DEIN IMAGE-NAME, BASIEREND AUF DEINEM REPO
+      IMAGE_NAME: ghcr.io/pasgrimm14/penguin_presentation 
+      
+    steps:
+      # 1. Schritt: Code holen
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Schritt: Bei der GitHub Registry (GHCR) anmelden
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }} # Automatisches, sicheres Token
+
+      # 3. Schritt: Docker-Image bauen und hochladen (basierend auf deinem Dockerfile)
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: . 
+          push: true
+          tags: ${{ env.IMAGE_NAME }}:latest
+
+      # 4. Schritt: Portainer-Webhook "anrufen", um das Update zu starten
+      - name: Trigger Portainer Redeploy
+        run: |
+          echo "Deploying to Portainer..."
+          curl -X POST ${{ secrets.PORTAINER_WEBHOOK_URL }}
